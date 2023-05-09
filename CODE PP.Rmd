@@ -1,0 +1,109 @@
+---
+title: "PP Code 1"
+author: "Andrea Salinas Blancas"
+output: html_document
+---
+```{r}
+#Fijar el directorio de trabajo
+setwd("/Users/andreasb/Desktop/SII/PP_Impulso a cuidadoras")
+```
+
+
+```{r}
+#Cargar las librerías a utilizar
+library(tidyverse)
+library(dplyr)
+
+#Cargamos las bases de datos
+TSDME1 <- read.csv("/Users/andreasb/Desktop/SII/PP_Impulso a cuidadoras/enut_2019_bd_csv/enut_2019/TSDMEM_ID.csv")
+TSDME<-TSDME1 %>%rename(SEXO_SDME=SEXO)
+
+TMODULO<- read.csv("/Users/andreasb/Desktop/SII/PP_Impulso a cuidadoras/enut_2019_bd_csv/enut_2019/TMODULO_ID.csv")
+
+```
+
+```{r}
+#Unir las bases de los dos cuestionarios por número de renglón
+BASE_FINAL<- merge(TMODULO,TSDME,by="ID")
+```
+
+Población potencial 2023: Personas cuidadoras (mayores de 15 años) de menores de 0 a 5 años: 
+
+Preguntas de cuidado:
+FP6.12  VERIFIQUE SI HAY INTEGRANTES DE 0 A 5 AÑOS Y SIN CUIDADOS ESPECIALES (SU NOMBRE Y/O NÚMERO DE RENGLÓN NO ESTÁ EN 3.11a)
+P6_12_1, P6_12_2, P6_12_3 con SI=1
+
+Pregunta 3.3 ¿Qué es del jefe(a) del hogar? (PAREN)
+1 - Jefe 
+2 - Esposo / compañero
+3 - Hijo
+
+Pregunta 3.4 La persona jefe de hogar es (SEXO_SDME): 
+1 - Hombre
+2 - Mujer
+
+Pregunta 6_16_4 Durante la semana pasada, ¿usted ayudó de manera gratuita a otro hogar en el cuidado de menores de 6 años? (llevarlos o recogerlos a la guardería
+o estancia, cargarlos, bañarlos, ayudarlos en las tareas escolares, etcétera)
+1 - SI 
+2 - NO
+
+Filtros: 
+1. La respuesta a la pregunta FP6.12 es 1 (SI)
+3. La respuesta a la P6_12_1, P6_12_2, P6_12_3 es SI=1
+4. La respuesta a 6_16_4 es SI=1
+2. Entidad de Nuevo León (19)
+3. Edad mayores de 15 años
+4. Quitar a las mujeres jefas de hogar. 
+
+NOTA: Se aplican factores de expansión a nivel persona
+
+```{r}
+
+#Estimación sin excluir a jefas de hogar
+TMODULO6.12_1 <- BASE_FINAL%>%filter(ENT=="19")%>%filter(P6_12_1 == "1"|P6_12_2 == "1"|P6_12_3 == "1"|P6_16_4=="1") %>% filter(EDAD_V > "15")
+
+#No. hombres que ejercen cuidado 
+TMODULO_H<- TMODULO6.12_1%>%filter(SEXO=="1")
+TOTAL_H <- colSums (select(TMODULO_H, contains ("FAC_PER.x")))
+TOTAL_H
+
+#No. de mujeres que ejercen cuidado
+TMODULO_M<- TMODULO6.12_1%>%filter(SEXO=="2")
+TOTAL_M <- colSums (select(TMODULO_M, contains ("FAC_PER.x")))
+TOTAL_M
+
+#Se aplican los factores de expansión a nivel persona (sin excluir jefas de hogar)
+TOTAL <- colSums (select(TMODULO6.12_1, contains ("FAC_PER.x")))
+TOTAL
+
+#Se realiza la estimación multiplicando por la tasa de crecimiento poblacional y por el Porcentaje de población en situación de pobreza multidimensional (CONEVAL 2020)
+Estimacion2023 <-(TOTAL * 1.054295)*0.2433
+```
+
+```{r}
+#Jefas de hogar que ejercen el cuidado
+TMODULO6.12_1_JH_M <- BASE_FINAL%>%filter(ENT=="19")%>%filter(P6_12_1 == "1"|P6_12_2 == "1"|P6_12_3 == "1"|P6_16_4=="1") %>% filter(EDAD_V > "15")%>% filter(SEXO_SDME == "2" & PAREN=="1")
+
+#Jefas de familia y que ejercen el cuidado
+TOTAL_JC <- colSums (select(TMODULO6.12_1_JH_M, contains ("FAC_PER.x")))
+TOTAL_JC
+```
+
+```{r}
+#Estimación excluyendo Jefas 
+TMODULO6.12_1_JH <- BASE_FINAL%>%filter(ENT=="19")%>%filter(P6_12_1 == "1"|P6_12_2 == "1"|P6_12_3 == "1"|P6_16_4=="1") %>% filter(EDAD_V > "15")%>% filter(PAREN == "1")%>% filter(SEXO_JEFE == "1" & PAREN=="1")
+```
+
+
+```{r}
+#Se aplican los factores de expansión a nivel persona
+TOTALJH <- colSums (select(TMODULO6.12_1_JH , contains ("FAC_PER.x")))
+TOTALJH 
+TOTAL1<-TMODULO6.12_1_JH%>%count(SEXO)
+
+#Se realiza la estimación multiplicando por la tasa de cremiento poblacional y por el Porcentaje de población en situación de pobreza multidimensional (CONEVAL 2020)
+Estimacion2023_JH <-(TOTALJH * 1.054)*0.2433
+```
+
+
+
